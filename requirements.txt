@@ -9,3 +9,6 @@ xgboost
 pandas
 numpy
 scikit-learn
+SQLAlchemy
+psycopg[binary]
+python-dotenv

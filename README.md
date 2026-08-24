@@ -2,11 +2,10 @@
 
 ## What this proves today
 
-Mobile app -> FastAPI -> prediction response -> JSON.
+Mobile app -> FastAPI -> trained-model prediction response -> JSON.
 
-The API is currently in **demo mode** because the uploaded project contains the
-research script/results but not the raw Dataset 1 CSV or a trained model artifact.
-The demo response is NOT the research model and must not be used clinically.
+The API loads `model/model_artifact.joblib` and returns its model score and
+HIGH/LOW classification. This prototype is not a clinical diagnostic tool.
 
 ## Existing model workflow being preserved
 
@@ -26,7 +25,22 @@ Then open:
 
 ## Test
 
-    pytest -q
+    python -m pytest -q
+
+## Optional PostgreSQL / Neon persistence
+
+Predictions can be saved without changing the model behavior. Copy
+`.env.example` to a local `.env` file (it is ignored by Git) and add the Neon
+connection string:
+
+    DATABASE_URL=postgresql://USER:PASSWORD@HOST/DBNAME?sslmode=require
+
+Start the API after loading that environment variable. On startup it creates the
+`assessments` table; each successful `/predict` request is then recorded with the
+submitted model inputs, model result, and timestamp. Without `DATABASE_URL`, the
+API continues to run normally and does not store prediction data.
+
+Do not commit a database URL or upload real patient data to a public repository.
 
 ## Next step
 
