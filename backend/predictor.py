@@ -1,66 +1,155 @@
 from pathlib import Path
-import numpy as np
+import joblib
+import pandas as pd
+
 
 class Predictor:
-    def __init__(self, artifact_path='model/model_artifact.joblib'):
+    def __init__(self, artifact_path="model/model_artifact.joblib"):
         self.artifact_path = Path(artifact_path)
         self.artifact = None
         self.is_loaded = False
+
         if self.artifact_path.exists():
-            import joblib
             self.artifact = joblib.load(self.artifact_path)
             self.is_loaded = True
 
     def predict(self, patient_data):
+
+        # ---------------------------------------------------------
+        # Demo mode if the trained artifact is not available
+        # ---------------------------------------------------------
         if not self.is_loaded:
             return {
-                'mode': 'demo',
-                'risk': 'HIGH',
-                'probability': 0.84,
-                'top_factors': [],
-                'message': 'Demo response only — run train_model.py and connect the validated model before use.'
+                "mode": "demo",
+                "risk": "HIGH",
+                "probability": 0.84,
+                "top_factors": [],
+                "message": (
+                    "Demo response only — run train_model.py "
+                    "and connect the validated model before use."
+                ),
             }
 
-        import pandas as pd
+        # ---------------------------------------------------------
+        # 1. Get the exact feature order used during training
+        # ---------------------------------------------------------
+        features = self.artifact["features"]
 
-        features = self.artifact['features']
+        normalized_patient_data = dict(patient_data)
 
-        # Build input row
-        row = {f: patient_data[f] for f in features}
-        X = pd.DataFrame([row], columns=features)
+        if "Hemoglobin " in features and "Hemoglobin" in normalized_patient_data:
+            normalized_patient_data["Hemoglobin "] = normalized_patient_data.pop("Hemoglobin")
 
-        # Convert categorical features using the encoders
-        for col, encoder in self.artifact['encoders'].items():
+        missing = [
+            feature
+            for feature in features
+            if feature not in normalized_patient_data
+        ]
+
+        if missing:
+            raise ValueError(
+                f"Missing patient features: {missing}"
+            )
+        # Build one-row DataFrame in the exact feature order
+        row = {
+            feature: normalized_patient_data[feature]
+            for feature in features
+        }
+        X = pd.DataFrame(
+            [row],
+            columns=features,
+            dtype=object
+        )
+        # ---------------------------------------------------------
+        # 2. Apply the SAME categorical encoding
+        # ---------------------------------------------------------
+        for col, encoder in self.artifact["encoders"].items():
+
             value = str(X.at[0, col])
 
-            if value in set(encoder.classes_):
-                X[col] = encoder.transform([value])
+            known_classes = set(
+                encoder.classes_
+            )
+
+            if value in known_classes:
+                X.at[0, col] = encoder.transform(
+                    [value]
+                )[0]
             else:
-                X[col] = [0]
+                # Same unseen-category behavior used during training
+                X.at[0, col] = 0
 
-        # Make sure everything is numeric before imputation
+        # ---------------------------------------------------------
+        # 3. Convert all values to numeric
+        # ---------------------------------------------------------
         for col in features:
-            X[col] = pd.to_numeric(X[col], errors='coerce')
+            X[col] = pd.to_numeric(
+                X[col],
+                errors="coerce"
+            )
 
-        # Apply the same preprocessing used during training
+        # ---------------------------------------------------------
+        # 4. SAME median imputation
+        # ---------------------------------------------------------
         X = pd.DataFrame(
-            self.artifact['imputer'].transform(X),
-            columns=features
+            self.artifact["imputer"].transform(X),
+            columns=features,
         )
 
-        X = self.artifact['scaler'].transform(X)
+        # ---------------------------------------------------------
+        # 5. SAME StandardScaler
+        # ---------------------------------------------------------
+        X_scaled = self.artifact["scaler"].transform(X)
 
-        probability = float(
-            self.artifact['model'].predict_proba(X)[0, 1]
+        # ---------------------------------------------------------
+        # 6. LR + XGBoost ensemble
+        #
+        # This is the important change:
+        #
+        # LR probability
+        #       +
+        # XGBoost probability
+        #       ----------------
+        #              2
+        # ---------------------------------------------------------
+
+        lr_probability = float(
+            self.artifact["lr_model"]
+            .predict_proba(X_scaled)[0, 1]
         )
 
-        threshold = float(self.artifact['threshold'])
-        risk = 'HIGH' if probability > threshold else 'LOW'
+        xgb_probability = float(
+            self.artifact["xgb_model"]
+            .predict_proba(X_scaled)[0, 1]
+        )
 
+        probability = (
+            lr_probability + xgb_probability
+        ) / 2.0
+
+        # ---------------------------------------------------------
+        # 7. Apply the SAME optimized threshold
+        # ---------------------------------------------------------
+        threshold = float(
+            self.artifact["threshold"]
+        )
+
+        risk = (
+            "HIGH"
+            if probability > threshold
+            else "LOW"
+        )
+
+        # ---------------------------------------------------------
+        # 8. API response
+        # ---------------------------------------------------------
         return {
-            'mode': 'model',
-            'risk': risk,
-            'probability': probability,
-            'threshold': threshold,
-            'message': 'Model output only. This prototype is not a medical diagnosis.'
+            "mode": "model",
+            "risk": risk,
+            "probability": probability,
+            "threshold": threshold,
+            "message": (
+                "Model output only. "
+                "This prototype is not a medical diagnosis."
+            ),
         }
