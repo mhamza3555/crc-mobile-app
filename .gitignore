@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.DS_Store
+colorectal_cancer_dataset_1_kaggle.csv

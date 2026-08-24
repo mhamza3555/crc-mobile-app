@@ -1,0 +1,12 @@
+{
+  "threshold": 0.4952838122844696,
+  "train_auc": 0.9777171227887298,
+  "test_auc": 0.9750210710474351,
+  "pakistan_auc": 0.9764159294936949,
+  "pakistan_recall": 0.8924657534246575,
+  "pakistan_precision": 0.9169598874032372,
+  "pakistan_f1": 0.9045470322804582,
+  "train_rows": 131158,
+  "test_rows": 32790,
+  "pakistan_rows": 3549
+}
