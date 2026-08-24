@@ -29,3 +29,33 @@ def test_predict_persists_assessment_when_database_is_configured(monkeypatch, tm
     assert saved.risk == response["risk"]
     assert saved.probability == response["probability"]
     assert saved.threshold == response["threshold"]
+
+
+def test_get_assessments_returns_saved_records(monkeypatch, tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'assessments.db'}")
+    Base.metadata.create_all(bind=engine)
+    test_session = sessionmaker(bind=engine)
+
+    monkeypatch.setattr(database, "SessionLocal", test_session)
+    monkeypatch.setattr(main, "is_database_configured", lambda: True)
+
+    with test_session() as db:
+        db.add(
+            Assessment(
+                patient_data={"Age": 65},
+                mode="model",
+                risk="HIGH",
+                probability=0.71,
+                threshold=0.425961,
+            )
+        )
+        db.commit()
+
+    results = main.get_assessments(limit=20)
+
+    assert len(results) == 1
+    assert results[0]["risk"] == "HIGH"
+    assert results[0]["probability"] == 0.71
+    assert results[0]["threshold"] == 0.425961
+
+    
