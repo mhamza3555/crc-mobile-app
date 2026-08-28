@@ -27,11 +27,10 @@ app = FastAPI(
 
 predictor = Predictor()
 
-
 class PredictionRequest(BaseModel):
+    user_id: str
     patient_data: Dict[str, Any]
-
-
+    
 @app.get("/health")
 def health():
     return {
@@ -61,6 +60,7 @@ def predict(request: PredictionRequest):
         with database.SessionLocal() as db:
             db.add(
                 Assessment(
+                    user_id=request.user_id,
                     patient_data=request.patient_data,
                     mode=result["mode"],
                     risk=result["risk"],

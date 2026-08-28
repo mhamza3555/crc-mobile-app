@@ -17,9 +17,21 @@ engine = None
 SessionLocal = None
 
 if database_url:
-    connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
-    engine = create_engine(database_url, pool_pre_ping=True, connect_args=connect_args)
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    connect_args = (
+        {"check_same_thread": False}
+        if database_url.startswith("sqlite")
+        else {}
+    )
+    engine = create_engine(
+        database_url,
+        pool_pre_ping=True,
+        connect_args=connect_args,
+    )
+    SessionLocal = sessionmaker(
+        autocommit=False,
+        autoflush=False,
+        bind=engine,
+    )
 
 
 def is_database_configured() -> bool:
@@ -27,12 +39,10 @@ def is_database_configured() -> bool:
 
 
 def init_db() -> None:
-    """Create required tables. Safe to call repeatedly at application startup."""
     if engine is None:
         return
 
-    # Imported here so models are registered before metadata is created.
-    from . import models  # noqa: F401
+    from . import models
 
     Base.metadata.create_all(bind=engine)
 

@@ -16,12 +16,24 @@ def test_health():
     assert response.json()["status"] == "ok"
 
 def test_predict_requires_all_25_features():
-    response = client.post("/predict", json={"patient_data": {"Age": 58}})
+    response = client.post(
+        "/predict",
+        json={
+            "user_id": "test-user",
+            "patient_data": {"Age": 58},
+        },
+    )   
     assert response.status_code == 422
     assert "missing_features" in response.json()["detail"]
 
 def test_predict_model_contract():
-    response = client.post("/predict", json={"patient_data": sample_patient()})
+    response = client.post(
+        "/predict",
+        json={
+            "user_id": "test-user",
+            "patient_data": sample_patient(),
+        },
+    )
     assert response.status_code == 200
     body = response.json()
     assert body["risk"] in {"HIGH", "LOW"}

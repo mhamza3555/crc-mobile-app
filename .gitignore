@@ -4,3 +4,4 @@ __pycache__/
 .env
 .DS_Store
 colorectal_cancer_dataset_1_kaggle.csv
+.pytest_tmp/
