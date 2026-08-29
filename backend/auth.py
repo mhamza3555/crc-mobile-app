@@ -2,7 +2,11 @@ import os
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
+from dotenv import load_dotenv
 from jose import JWTError, jwt
+
+
+load_dotenv()
 
 
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-secret-change-this")
@@ -18,10 +22,13 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(password: str, password_hash: str) -> bool:
-    return bcrypt.checkpw(
-        password.encode("utf-8"),
-        password_hash.encode("utf-8"),
-    )
+    try:
+        return bcrypt.checkpw(
+            password.encode("utf-8"),
+            password_hash.encode("utf-8"),
+        )
+    except (ValueError, TypeError):
+        return False
 
 
 def create_access_token(user_id: str) -> str:
@@ -34,7 +41,11 @@ def create_access_token(user_id: str) -> str:
         "exp": expire,
     }
 
-    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    return jwt.encode(
+        payload,
+        SECRET_KEY,
+        algorithm=ALGORITHM,
+    )
 
 
 def decode_access_token(token: str) -> str | None:
