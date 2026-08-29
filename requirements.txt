@@ -2,6 +2,7 @@ fastapi
 uvicorn
 pydantic
 pytest
+
 httpx
 
 joblib
@@ -12,3 +13,5 @@ scikit-learn
 SQLAlchemy
 psycopg[binary]
 python-dotenv
+passlib[bcrypt]
+python-jose
