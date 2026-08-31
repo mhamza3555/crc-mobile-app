@@ -5,3 +5,16 @@ __pycache__/
 .DS_Store
 colorectal_cancer_dataset_1_kaggle.csv
 .pytest_tmp/
+# Node / Expo
+node_modules/
+mobile/node_modules/
+mobile/.expo/
+
+# Build files
+dist/
+web-build/
+
+# Environment files
+.env
+.env.*
+!.env.example
