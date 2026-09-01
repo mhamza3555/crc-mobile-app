@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 from typing import Any, Dict
-
+from .ai_explanation import generate_risk_explanation
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -183,6 +183,9 @@ def predict(
 
     result = predictor.predict(request.patient_data)
 
+    assessment_id = None
+    ai_explanation = None
+
     if is_database_configured():
         with database.SessionLocal() as db:
             user = db.scalar(
@@ -206,9 +209,21 @@ def predict(
 
             db.add(assessment)
             db.commit()
+            db.refresh(assessment)
 
-    return result
+            assessment_id = assessment.id
 
+    ai_explanation = generate_risk_explanation(
+        request.patient_data,
+        result["risk"],
+        result["probability"],
+    )
+
+    return {
+        **result,
+        "assessment_id": assessment_id,
+        "ai_explanation": ai_explanation,
+    }
 
 @app.get("/assessments")
 def get_assessments(
@@ -240,6 +255,7 @@ def get_assessments(
             "probability": assessment.probability,
             "threshold": assessment.threshold,
             "created_at": assessment.created_at,
+            "patient_data": assessment.patient_data,
         }
         for assessment in assessments
     ]

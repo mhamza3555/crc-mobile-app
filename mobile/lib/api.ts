@@ -91,6 +91,8 @@ export type PredictionResponse = {
   threshold?: number;
   top_factors?: string[];
   message: string;
+  assessment_id?: string | null;
+  ai_explanation?: string | null;
 };
 
 export type Assessment = {
@@ -101,6 +103,7 @@ export type Assessment = {
   probability: number;
   threshold?: number;
   created_at: string;
+  patient_data?: Record<string, unknown>;
 };
 
 export function register(
