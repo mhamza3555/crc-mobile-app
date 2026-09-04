@@ -1,23 +1,77 @@
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 import {
+  ActivityIndicator,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 
 import Button from "../components/Button";
+import {
+  getDoctorAppointments,
+  getDoctorPatients,
+  Appointment,
+  DoctorPatient,
+} from "../lib/api";
 import { removeToken } from "../lib/auth";
 
 export default function DoctorDashboardScreen() {
+  const [appointments, setAppointments] =
+    useState<Appointment[]>([]);
+  const [patients, setPatients] =
+    useState<DoctorPatient[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  async function load() {
+    try {
+      setLoading(true);
+
+      const [
+        appointmentData,
+        patientData,
+      ] = await Promise.all([
+        getDoctorAppointments(),
+        getDoctorPatients(),
+      ]);
+
+      setAppointments(appointmentData);
+      setPatients(patientData);
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [])
+  );
+
   async function handleLogout() {
     await removeToken();
     router.replace("/");
   }
 
+  const pendingCount =
+    appointments.filter(
+      (item) => item.status === "PENDING"
+    ).length;
+
+  const highRiskCount =
+    patients.filter(
+      (item) =>
+        item.latest_assessment?.risk === "HIGH"
+    ).length;
+
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.eyebrow}>
           DOCTOR PORTAL
         </Text>
@@ -27,52 +81,105 @@ export default function DoctorDashboardScreen() {
         </Text>
 
         <Text style={styles.subtitle}>
-          Review patient CRC risk assessments and
-          model-generated results.
+          Manage appointment requests and review
+          assigned patient assessments.
         </Text>
 
-        <View style={styles.statRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>—</Text>
-            <Text style={styles.statLabel}>
-              Assessments
-            </Text>
+        {loading ? (
+          <View style={styles.loading}>
+            <ActivityIndicator size="large" />
           </View>
+        ) : (
+          <>
+            <View style={styles.statRow}>
+              <View style={styles.statCard}>
+                <Text style={styles.statNumber}>
+                  {pendingCount}
+                </Text>
 
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>—</Text>
-            <Text style={styles.statLabel}>
-              High Risk
-            </Text>
-          </View>
-        </View>
+                <Text style={styles.statLabel}>
+                  Pending Requests
+                </Text>
+              </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>
-            Patient Assessments
-          </Text>
+              <View style={styles.statCard}>
+                <Text style={styles.statNumber}>
+                  {patients.length}
+                </Text>
 
-          <Text style={styles.cardText}>
-            Patient assessment records and risk results
-            will appear here.
-          </Text>
-        </View>
+                <Text style={styles.statLabel}>
+                  Patients
+                </Text>
+              </View>
 
-        <Button
-          title="View Assessments"
-          onPress={() =>
-            router.push("/doctor-assessments")
-          }
-        />
+              <View style={styles.statCard}>
+                <Text style={styles.statNumber}>
+                  {highRiskCount}
+                </Text>
 
-        <View style={styles.spacing} />
+                <Text style={styles.statLabel}>
+                  High Risk
+                </Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.card}
+              onPress={() =>
+                router.push(
+                  "/doctor-appointments"
+                )
+              }
+            >
+              <Text style={styles.cardTitle}>
+                Appointment Requests
+              </Text>
+
+              <Text style={styles.cardText}>
+                {pendingCount === 0
+                  ? "No pending requests."
+                  : `You have ${pendingCount} pending appointment request${
+                      pendingCount === 1
+                        ? ""
+                        : "s"
+                    }.`}
+              </Text>
+
+              <Text style={styles.link}>
+                View requests →
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.card}
+              onPress={() =>
+                router.push(
+                  "/doctor-patients"
+                )
+              }
+            >
+              <Text style={styles.cardTitle}>
+                My Patients
+              </Text>
+
+              <Text style={styles.cardText}>
+                Review assigned patients, their
+                assessment history and model results.
+              </Text>
+
+              <Text style={styles.link}>
+                View patients →
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
 
         <Button
           title="Log Out"
           variant="secondary"
           onPress={handleLogout}
         />
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -82,11 +189,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F7F9FC",
   },
+
   content: {
-    flex: 1,
-    padding: 28,
-    justifyContent: "center",
+    padding: 24,
+    paddingBottom: 40,
   },
+
   eyebrow: {
     fontSize: 12,
     fontWeight: "800",
@@ -94,57 +202,74 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
     marginBottom: 8,
   },
+
   title: {
-    fontSize: 32,
+    fontSize: 30,
     fontWeight: "800",
-    color: "#0F172A",
-    marginBottom: 10,
-  },
-  subtitle: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: "#64748B",
-    marginBottom: 28,
-  },
-  statRow: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 18,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 18,
-  },
-  statNumber: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: "#0F172A",
-  },
-  statLabel: {
-    marginTop: 4,
-    color: "#64748B",
-    fontSize: 13,
-  },
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: "700",
     color: "#0F172A",
     marginBottom: 8,
   },
-  cardText: {
+
+  subtitle: {
     fontSize: 15,
     lineHeight: 22,
     color: "#64748B",
+    marginBottom: 22,
   },
-  spacing: {
-    height: 12,
+
+  statRow: {
+    flexDirection: "row",
+    gap: 9,
+    marginBottom: 18,
+  },
+
+  statCard: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 15,
+    padding: 14,
+  },
+
+  statNumber: {
+    fontSize: 25,
+    fontWeight: "900",
+    color: "#0F172A",
+  },
+
+  statLabel: {
+    marginTop: 3,
+    fontSize: 11,
+    color: "#64748B",
+  },
+
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 17,
+    padding: 19,
+    marginBottom: 12,
+  },
+
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#0F172A",
+    marginBottom: 7,
+  },
+
+  cardText: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: "#64748B",
+  },
+
+  link: {
+    marginTop: 14,
+    color: "#2563EB",
+    fontWeight: "700",
+  },
+
+  loading: {
+    padding: 40,
+    alignItems: "center",
   },
 });

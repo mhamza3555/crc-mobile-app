@@ -42,7 +42,10 @@ async function request<T>(
     response = await fetch(`${API_URL}${path}`, {
       method,
       headers,
-      body: body ? JSON.stringify(body) : undefined,
+      body:
+        body !== undefined
+          ? JSON.stringify(body)
+          : undefined,
     });
   } catch {
     throw new Error(
@@ -104,6 +107,53 @@ export type Assessment = {
   threshold?: number;
   created_at: string;
   patient_data?: Record<string, unknown>;
+  ai_explanation?: string | null;
+};
+
+export type Doctor = {
+  id: string;
+  name: string;
+  email: string;
+  role: "doctor";
+};
+
+export type Appointment = {
+  id: string;
+  status: string;
+  requested_at: string;
+  appointment_date?: string | null;
+  notes?: string | null;
+  doctor?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  patient?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  latest_assessment?: {
+    risk: "HIGH" | "LOW";
+    probability: number;
+    created_at: string;
+  } | null;
+};
+
+export type DoctorPatient = {
+  id: string;
+  name: string;
+  email: string;
+  latest_assessment?: {
+    risk: "HIGH" | "LOW";
+    probability: number;
+    created_at: string;
+  } | null;
+};
+
+export type DoctorPatientDetail = {
+  patient: User;
+  assessments: Assessment[];
 };
 
 export function register(
@@ -152,4 +202,79 @@ export function getAssessments() {
   return request<Assessment[]>("/assessments", {
     authenticated: true,
   });
+}
+
+export function getDoctors() {
+  return request<Doctor[]>("/doctors", {
+    authenticated: true,
+  });
+}
+
+export function createAppointment(
+  doctorId: string,
+  notes?: string
+) {
+  return request<Appointment>("/appointments", {
+    method: "POST",
+    authenticated: true,
+    body: {
+      doctor_id: doctorId,
+      notes: notes || null,
+    },
+  });
+}
+
+export function getAppointments() {
+  return request<Appointment[]>("/appointments", {
+    authenticated: true,
+  });
+}
+
+export function getDoctorAppointments() {
+  return request<Appointment[]>(
+    "/doctor/appointments",
+    {
+      authenticated: true,
+    }
+  );
+}
+
+export function updateAppointmentStatus(
+  appointmentId: string,
+  status:
+    | "ACCEPTED"
+    | "REJECTED"
+    | "COMPLETED"
+    | "CANCELLED"
+) {
+  return request<Appointment>(
+    `/doctor/appointments/${appointmentId}`,
+    {
+      method: "PATCH",
+      authenticated: true,
+      body: {
+        status,
+      },
+    }
+  );
+}
+
+export function getDoctorPatients() {
+  return request<DoctorPatient[]>(
+    "/doctor/patients",
+    {
+      authenticated: true,
+    }
+  );
+}
+
+export function getDoctorPatient(
+  patientId: string
+) {
+  return request<DoctorPatientDetail>(
+    `/doctor/patients/${patientId}`,
+    {
+      authenticated: true,
+    }
+  );
 }

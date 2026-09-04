@@ -16,98 +16,108 @@ def generate_risk_explanation(
 
     if not api_key:
         return (
-            "AI explanation is currently unavailable because the "
-            "AI service is not configured. Your model-based risk "
-            "result is still available. Please discuss the result "
-            "with a qualified healthcare professional."
+            "The AI explanation service is not configured. "
+            "Your model-based risk result is still available. "
+            "Please discuss your result with a qualified doctor."
         )
 
-    try:
-        client = genai.Client(api_key=api_key)
+    prompt = f"""
+You are a patient education assistant for a colorectal cancer
+risk assessment application.
 
-        prompt = f"""
-You are an educational health-information assistant inside a
-prototype colorectal cancer risk assessment application.
-
-The application uses a machine-learning model to estimate
-colorectal cancer risk. You MUST NOT diagnose cancer.
-
-Your job is to explain the result to the patient in very simple,
-clear and reassuring language.
+The machine-learning model has already calculated the patient's
+risk. You must NOT diagnose cancer and you must NOT change the
+model result.
 
 PATIENT INFORMATION:
 {patient_data}
 
-MACHINE LEARNING RESULT:
-Risk category: {risk}
+MODEL RESULT:
+Risk: {risk}
 Model probability: {probability * 100:.1f}%
 
-Write a personalized explanation based ONLY on the information
-provided above.
+Explain the result to the patient in simple everyday language.
 
-Your response MUST contain these sections:
+Use EXACTLY these plain-text headings:
 
 WHAT YOUR RESULT MEANS
-Explain what the LOW or HIGH model risk means in simple words.
-Clearly explain that this is an estimated risk and NOT a diagnosis.
 
 FACTORS THAT MAY BE IMPORTANT
-Mention the relevant symptoms, history, examination findings,
-or test results that were actually provided by this patient.
-Do not invent anything.
-Explain medical terms in simple language.
 
 WHAT YOU SHOULD DO NEXT
-Give practical, general next steps.
-If the model risk is HIGH, strongly recommend discussing the
-result with a qualified doctor.
-If the model risk is LOW, explain that a low model risk does
-not completely rule out disease and that concerning symptoms
-should still be discussed with a doctor.
 
 WHEN TO SEEK MEDICAL ATTENTION
-Mention concerning symptoms or situations from the information
-provided that should prompt medical evaluation.
-Do not create symptoms that the patient did not report.
 
 IMPORTANT NOTE
-Clearly state that this tool does not diagnose colorectal cancer
-and does not replace a doctor's assessment.
 
-SAFETY RULES:
-- Never say the patient has cancer.
+Instructions:
+
+- Explain the HIGH or LOW model result clearly.
+- Explain that the percentage is a computer-generated estimate,
+  not a diagnosis and not proof that the patient has cancer.
+- Only mention symptoms, history, examination findings and test
+  results that actually appear in the patient information.
+- Highlight the most relevant findings rather than listing
+  everything.
+- Explain medical terms in simple language.
+- If the model result is HIGH, recommend arranging an appointment
+  with a qualified doctor for proper evaluation.
+- If the model result is LOW, explain that a low model risk does
+  not completely rule out disease.
+- If concerning symptoms are present, recommend discussing them
+  with a doctor even if the model result is LOW.
+- Mention urgent medical attention only when appropriate based
+  on the information supplied.
+- Never say that the patient has cancer.
 - Never say that one symptom proves cancer.
-- Do not invent symptoms, diagnoses, test results or treatments.
-- Only discuss information actually provided.
-- Do not prescribe medication.
-- Do not recommend a specific medication or dose.
-- Do not give a definitive diagnosis.
-- Use simple language suitable for a general patient.
-- Be reassuring but do not falsely reassure the patient.
-- Keep the response around 250-350 words.
+- Never invent symptoms, diagnoses, test results or treatments.
+- Never prescribe medication.
+- Never recommend a medication or dose.
+- Do not contradict or change the ML risk category.
+- Do not change the model probability.
+- Do not use Markdown.
+- Do not use asterisks.
+- Do not use bullet symbols.
+- Keep each section short and easy to read.
+- Total response should be approximately 180-250 words.
+- Write directly for the patient, using "your" and "you".
 """
 
-        response = client.models.generate_content(
+    try:
+        client = genai.Client(api_key=api_key)
+
+        interaction = client.interactions.create(
             model="gemini-3.7-flash",
-            contents=prompt,
+            input=prompt,
+            generation_config={
+                "thinking_level": "low",
+            },
         )
 
-        if response.text:
-            return response.text.strip()
+        text = (interaction.output_text or "").strip()
 
-        return (
-            "The AI service did not return an explanation. "
-            "Your model-based risk result is still available. "
-            "Please discuss the result with a qualified "
-            "healthcare professional."
-        )
+        if not text:
+            return (
+                "The AI explanation could not be generated. "
+                "Your model-based risk result is still available. "
+                "Please discuss your result with a qualified doctor."
+            )
+
+        # Remove accidental Markdown formatting.
+        text = text.replace("**", "")
+        text = text.replace("###", "")
+        text = text.replace("##", "")
+        text = text.replace("*", "")
+
+        return text.strip()
 
     except Exception as error:
-        print(f"Gemini AI error: {error}")
+        print(
+            f"Gemini AI error: {type(error).__name__}: {error}"
+        )
 
         return (
             "The AI explanation service is temporarily unavailable. "
             "Your model-based risk result is still available. "
-            "Please discuss your result and symptoms with a "
-            "qualified healthcare professional."
+            "Please discuss your result with a qualified doctor."
         )
